@@ -15,7 +15,7 @@
 
 set -eu
 
-IMAGE="${CATALOG_ROUTER_IMAGE:-ghcr.io/sangaraju1988/catalog-router:0.1.1}"
+IMAGE="${CATALOG_ROUTER_IMAGE:-ghcr.io/sangaraju1988/catalog-router:0.1.2}"
 HOME_DIR="${CATALOG_ROUTER_HOME:-$HOME/.catalog-router}"
 CATALOG="$HOME_DIR/catalog.yaml"
 CONFIGURE_CLAUDE=0
@@ -35,7 +35,7 @@ command -v docker >/dev/null 2>&1 || fail "Docker is not installed. Get Docker D
 docker info >/dev/null 2>&1 || fail "Docker is installed but not running. Start Docker Desktop and re-run."
 
 say "Getting image $IMAGE"
-LOCAL_IMAGE="catalog-router:0.1.1"
+LOCAL_IMAGE="catalog-router:0.1.2"
 if ! docker pull -q "$IMAGE" >/dev/null 2>&1; then
   if docker image inspect "$LOCAL_IMAGE" >/dev/null 2>&1; then
     IMAGE="$LOCAL_IMAGE"

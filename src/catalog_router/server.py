@@ -6,6 +6,7 @@ import argparse
 import logging
 import os
 import sys
+from pathlib import Path
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
@@ -31,8 +32,34 @@ and list_systems to see what is connected. This server never queries data itself
 log = logging.getLogger("catalog_router")
 
 
-def build_server(catalog_path: str) -> MCPServer:
-    state: dict[str, Any] = {"catalog": load_catalog(catalog_path), "path": catalog_path}
+def resolve_catalog_path(requested: str, bundled: str = DEFAULT_CATALOG) -> tuple[str, bool]:
+    """Return (path to load, fell_back_to_example).
+
+    When the requested catalog isn't a readable file (for example, the MCP
+    Toolkit was enabled without choosing a catalog), fall back to the example
+    bundled in the image so the server still starts and lists its tools.
+    """
+    if Path(requested).is_file() or requested == bundled or not Path(bundled).is_file():
+        return requested, False
+    log.warning("catalog %s not found; using the bundled example catalog %s", requested, bundled)
+    return bundled, True
+
+
+def build_server(catalog_path: str, fell_back_to_example: bool = False) -> MCPServer:
+    state: dict[str, Any] = {
+        "catalog": load_catalog(catalog_path),
+        "path": catalog_path,
+        "fell_back_to_example": fell_back_to_example,
+    }
+
+    def catalog_info() -> dict[str, Any]:
+        info: dict[str, Any] = {"path": state["path"], "fell_back_to_example": state["fell_back_to_example"]}
+        if state["fell_back_to_example"]:
+            info["note"] = (
+                "No catalog was configured, so the bundled example (a fictional company) is active. "
+                "Point CATALOG_PATH at your own catalog to route questions for your real BI stack."
+            )
+        return info
 
     def catalog() -> Catalog:
         return state["catalog"]
@@ -86,6 +113,7 @@ def build_server(catalog_path: str) -> MCPServer:
                 for s in cat.systems.values()
             ],
             "entity_count": len(cat.entities),
+            "catalog": catalog_info(),
         }
 
     @mcp.tool(title="Reload the catalog")
@@ -103,7 +131,13 @@ def build_server(catalog_path: str) -> MCPServer:
     async def healthz(_: Request) -> JSONResponse:
         cat = catalog()
         return JSONResponse(
-            {"status": "ok", "version": __version__, "systems": len(cat.systems), "entities": len(cat.entities)}
+            {
+                "status": "ok",
+                "version": __version__,
+                "systems": len(cat.systems),
+                "entities": len(cat.entities),
+                "catalog": catalog_info(),
+            }
         )
 
     return mcp
@@ -131,17 +165,21 @@ def main(argv: list[str] | None = None) -> int:
     # stdout belongs to the MCP protocol in stdio mode: log to stderr only.
     logging.basicConfig(stream=sys.stderr, level=os.environ.get("LOG_LEVEL", "INFO"))
 
+    # --check validates exactly the file you name; serving falls back to the
+    # bundled example so an unconfigured install still starts.
+    path, fell_back = (args.catalog, False) if args.check else resolve_catalog_path(args.catalog)
+
     try:
-        server = build_server(args.catalog)
+        server = build_server(path, fell_back_to_example=fell_back)
     except CatalogError as exc:
         print(f"catalog error: {exc}", file=sys.stderr)
         return 2
 
     if args.check:
-        print(f"catalog OK: {args.catalog}", file=sys.stderr)
+        print(f"catalog OK: {path}", file=sys.stderr)
         return 0
 
-    log.info("catalog-router %s starting (%s) with %s", __version__, args.transport, args.catalog)
+    log.info("catalog-router %s starting (%s) with %s", __version__, args.transport, path)
     if args.transport == "stdio":
         server.run("stdio")
     else:

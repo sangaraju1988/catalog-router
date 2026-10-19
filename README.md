@@ -32,7 +32,7 @@ The installer pulls the image and writes an example catalog to `~/.catalog-route
 docker run -i --rm --network none --read-only --cap-drop ALL \
   --security-opt no-new-privileges \
   -v ~/.catalog-router/catalog.yaml:/catalog/catalog.yaml:ro \
-  catalog-router:0.1.1
+  catalog-router:0.1.2
 
 # HTTP (long-running, for gateways and shared use)
 docker compose up -d --build
@@ -44,7 +44,7 @@ curl localhost:8080/healthz         # {"status":"ok",...}
 
 ```sh
 git clone https://github.com/sangaraju1988/catalog-router && cd catalog-router
-docker build -t catalog-router:0.1.1 .
+docker build -t catalog-router:0.1.2 .
 ./install.sh            # falls back to the local build when the image can't be pulled
 ```
 
@@ -106,10 +106,12 @@ See [`catalog/example-catalog.yaml`](catalog/example-catalog.yaml), which is a f
 - `entities`: metrics, dashboards, models, tables and fields. Each has `synonyms`, a home `system`, a `ref`, optional `also_in` exposures, `upstream` lineage, and `pii`.
 - `governance`: the governed-preference margin and the PII approval rule.
 
+The server reads the catalog from `CATALOG_PATH`. If that file doesn't exist, for example when the server is enabled in Docker's MCP Toolkit without choosing a catalog, it starts with the bundled example instead. `list_systems` then reports `"fell_back_to_example": true`, so the agent can tell you it's routing against demo data.
+
 Validate a catalog without starting the server:
 
 ```sh
-docker run --rm --network none -v ./my-catalog.yaml:/catalog/catalog.yaml:ro catalog-router:0.1.1 --check
+docker run --rm --network none -v ./my-catalog.yaml:/catalog/catalog.yaml:ro catalog-router:0.1.2 --check
 ```
 
 Validation rejects:
@@ -133,7 +135,7 @@ The router only needs to read one YAML file and talk over stdio, so the default 
 
 ## Roadmap
 
-- [ ] Publish multi-arch image to GHCR (CI is ready; it runs on tag `v0.1.1`)
+- [ ] Publish multi-arch image to GHCR (CI is ready; it runs on tag `v0.1.2`)
 - [ ] Register in a Docker MCP Gateway custom catalog, alongside the dbt, Looker, Tableau, Superset and BigQuery servers
 - [ ] `catalog-router import`: generate the catalog from a dbt `manifest.json` and LookML
 - [ ] Optional embedding-based synonym matching, with the deterministic path kept as the default

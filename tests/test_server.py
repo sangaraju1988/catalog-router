@@ -6,7 +6,7 @@ import anyio
 import pytest
 from mcp.client.client import Client
 
-from catalog_router.server import build_server
+from catalog_router.server import build_server, main, resolve_catalog_path
 
 EXAMPLE = str(Path(__file__).resolve().parents[1] / "catalog" / "example-catalog.yaml")
 
@@ -61,6 +61,32 @@ def test_reload_keeps_previous_catalog_on_error(tmp_path):
     bad, still = _run(go)
     assert bad["reloaded"] is False
     assert len(still["systems"]) == 5
+
+
+def test_missing_catalog_falls_back_to_bundled(tmp_path):
+    bundled = tmp_path / "bundled.yaml"
+    bundled.write_text(Path(EXAMPLE).read_text())
+    path, fell_back = resolve_catalog_path(str(tmp_path / "not-mounted.yaml"), bundled=str(bundled))
+    assert (path, fell_back) == (str(bundled), True)
+
+    async def go():
+        async with Client(build_server(path, fell_back_to_example=True)) as c:
+            return (await c.call_tool("list_systems", {})).structured_content
+
+    info = _run(go)["catalog"]
+    assert info["fell_back_to_example"] is True
+    assert "bundled example" in info["note"]
+
+
+def test_existing_catalog_is_used_as_is(tmp_path):
+    mine = tmp_path / "mine.yaml"
+    mine.write_text(Path(EXAMPLE).read_text())
+    assert resolve_catalog_path(str(mine), bundled=str(tmp_path / "bundled.yaml")) == (str(mine), False)
+
+
+def test_check_does_not_fall_back(tmp_path, capsys):
+    assert main(["--catalog", str(tmp_path / "missing.yaml"), "--check"]) == 2
+    assert "not found" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("q", ["", "   "])

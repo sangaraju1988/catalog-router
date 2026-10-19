@@ -11,7 +11,7 @@ RUN pip wheel --wheel-dir /wheels .
 # ---- runtime stage: no compiler, no source tree, non-root ---------------------
 FROM python:3.13-slim AS runtime
 
-ARG VERSION=0.1.1
+ARG VERSION=0.1.2
 LABEL org.opencontainers.image.title="catalog-router" \
       org.opencontainers.image.description="MCP server that routes BI questions to dbt, Looker, Tableau, Superset or BigQuery using a semantic catalog graph" \
       org.opencontainers.image.version="${VERSION}" \

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "catalog-router"
-version = "0.1.1"
+version = "0.1.2"
 description = "MCP server that routes BI questions to the right system (dbt, Looker, Tableau, Superset, BigQuery) using a semantic catalog graph."
 readme = "README.md"
 license = "Apache-2.0"
