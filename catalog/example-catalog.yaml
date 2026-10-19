@@ -1,0 +1,207 @@
+# Semantic catalog graph for catalog-router.
+#
+# This file is the router's whole brain: which BI systems exist, what each one
+# is good at, which business entities live where, how they connect (lineage),
+# and which ones carry PII. Edit it to describe YOUR stack, then mount it into
+# the container at /catalog/catalog.yaml.
+#
+# The example below describes a fictional e-commerce company ("Acme").
+
+version: 1
+
+# ---------------------------------------------------------------------------
+# Systems: one entry per downstream MCP server the agent can call.
+#   mcp_server   name of the server in Docker MCP Gateway / your client config
+#   capabilities what kinds of questions this system answers well (see intents)
+#   governed     true = answers come from a curated semantic layer
+#   pii_allowed  false = never route questions touching PII entities here
+# ---------------------------------------------------------------------------
+systems:
+  - id: dbt
+    kind: dbt
+    mcp_server: dbt
+    description: dbt project and Semantic Layer — source of truth for metric logic and model lineage.
+    capabilities: [metric_definition, lineage, governed_metric]
+    governed: true
+    pii_allowed: false
+
+  - id: looker
+    kind: looker
+    mcp_server: looker
+    description: Looker semantic model (LookML explores) and curated dashboards.
+    capabilities: [governed_metric, dashboard, metric_definition]
+    governed: true
+    pii_allowed: false
+
+  - id: tableau
+    kind: tableau
+    mcp_server: tableau
+    description: Tableau workbooks used by Finance.
+    capabilities: [dashboard]
+    governed: true
+    pii_allowed: false
+
+  - id: superset
+    kind: superset
+    mcp_server: superset
+    description: Superset for ops and engineering self-serve charts.
+    capabilities: [dashboard, ad_hoc_sql]
+    governed: false
+    pii_allowed: false
+
+  - id: bigquery
+    kind: bigquery
+    mcp_server: bigquery
+    description: Raw warehouse tables. Last resort for event-level or unmodeled data.
+    capabilities: [ad_hoc_sql, raw_data, schema]
+    governed: false
+    pii_allowed: true   # access is still gated: see governance.pii_requires_approval
+
+# ---------------------------------------------------------------------------
+# Intents: phrases in a question that signal what KIND of answer is wanted.
+# Each matching phrase adds its weight to the named capability.
+# ---------------------------------------------------------------------------
+intents:
+  metric_definition:
+    weight: 3
+    phrases: [how is, defined, definition, calculated, calculation, formula, logic, what counts as, meaning of]
+  lineage:
+    weight: 3
+    phrases: [lineage, upstream, downstream, depends on, dependency, dependencies, source of, comes from, impact of changing, what breaks]
+  dashboard:
+    weight: 3
+    phrases: [dashboard, report, workbook, chart, visualization, where can i see, link to]
+  governed_metric:
+    weight: 2
+    phrases: [how many, how much, total, trend, by month, by week, by region, last quarter, last month, this year, yoy, year over year, growth, compare, top]
+  ad_hoc_sql:
+    weight: 2
+    phrases: [sql, query the table, row level, row-level, event level, event-level, raw, individual]
+  raw_data:
+    weight: 2
+    phrases: [raw, events table, clickstream, logs, unmodeled]
+  schema:
+    weight: 2
+    phrases: [columns, schema, table structure, data type, which table]
+
+# ---------------------------------------------------------------------------
+# Entities: the business vocabulary. `system` is where the entity's
+# authoritative definition lives; `also_in` lists other places it is exposed.
+# `upstream` edges form the lineage graph (entity ids).
+# ---------------------------------------------------------------------------
+entities:
+  - id: metric.net_revenue
+    type: metric
+    name: Net Revenue
+    synonyms: [net revenue, revenue, net sales, sales]
+    system: dbt
+    ref: semantic_models.orders.net_revenue
+    also_in:
+      looker: explore://ecommerce/orders.net_revenue
+      tableau: workbook://Finance Weekly/Revenue
+    upstream: [model.fct_orders]
+
+  - id: metric.active_customers
+    type: metric
+    name: Active Customers
+    synonyms: [active customers, active users, mau, monthly active]
+    system: dbt
+    ref: semantic_models.customers.active_customers
+    also_in:
+      looker: explore://ecommerce/customers.active_count
+    upstream: [model.dim_customers, model.fct_orders]
+
+  - id: metric.churn_rate
+    type: metric
+    name: Churn Rate
+    synonyms: [churn, churn rate, attrition, retention]
+    system: dbt
+    ref: semantic_models.customers.churn_rate
+    also_in:
+      looker: explore://ecommerce/customers.churn_rate
+    upstream: [model.dim_customers]
+
+  - id: metric.p95_checkout_latency
+    type: metric
+    name: P95 Checkout Latency
+    synonyms: [checkout latency, p95 latency, checkout speed]
+    system: superset
+    ref: chart://ops/checkout-latency
+    upstream: [table.raw_checkout_events]
+
+  - id: dashboard.exec_weekly
+    type: dashboard
+    name: Executive Weekly
+    synonyms: [exec weekly, executive dashboard, weekly business review, wbr]
+    system: looker
+    ref: dashboard://42
+    upstream: [metric.net_revenue, metric.active_customers, metric.churn_rate]
+
+  - id: dashboard.finance_weekly
+    type: dashboard
+    name: Finance Weekly
+    synonyms: [finance weekly, finance dashboard, finance workbook]
+    system: tableau
+    ref: workbook://Finance Weekly
+    upstream: [metric.net_revenue]
+
+  - id: model.fct_orders
+    type: model
+    name: fct_orders
+    synonyms: [fct_orders, orders model, orders fact, orders]
+    system: dbt
+    ref: model.acme.fct_orders
+    upstream: [table.raw_orders]
+
+  - id: model.dim_customers
+    type: model
+    name: dim_customers
+    synonyms: [dim_customers, customers model, customer dimension, customers]
+    system: dbt
+    ref: model.acme.dim_customers
+    upstream: [table.raw_customers]
+
+  - id: table.raw_orders
+    type: table
+    name: raw.orders
+    synonyms: [raw orders, raw.orders, orders table]
+    system: bigquery
+    ref: acme-prod.raw.orders
+    upstream: []
+
+  - id: table.raw_customers
+    type: table
+    name: raw.customers
+    synonyms: [raw customers, raw.customers, customers table]
+    system: bigquery
+    ref: acme-prod.raw.customers
+    pii: true
+    pii_fields: [email, phone, shipping_address]
+    upstream: []
+
+  - id: field.customer_email
+    type: field
+    name: Customer Email
+    synonyms: [email, emails, email address, customer email]
+    system: bigquery
+    ref: acme-prod.raw.customers.email
+    pii: true
+    upstream: [table.raw_customers]
+
+  - id: table.raw_checkout_events
+    type: table
+    name: raw.checkout_events
+    synonyms: [checkout events, raw.checkout_events, clickstream]
+    system: bigquery
+    ref: acme-prod.raw.checkout_events
+    upstream: []
+
+# ---------------------------------------------------------------------------
+# Governance rules applied after scoring.
+# ---------------------------------------------------------------------------
+governance:
+  # Prefer governed systems when scores are close (within this margin).
+  prefer_governed_margin: 1.0
+  # Questions touching PII entities are never auto-routed; the decision is
+  # returned with requires_approval=true so a human (or policy engine) decides.
+  pii_requires_approval: true

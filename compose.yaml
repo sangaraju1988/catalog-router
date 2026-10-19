@@ -1,0 +1,38 @@
+# Run catalog-router as a long-lived HTTP MCP server.
+#
+#   docker compose up -d --build
+#   curl localhost:8080/healthz
+#   MCP endpoint: http://localhost:8080/mcp
+#
+# Point CATALOG_FILE at your own catalog:
+#   CATALOG_FILE=./my-catalog.yaml docker compose up -d
+
+services:
+  catalog-router:
+    build: .
+    image: ${CATALOG_ROUTER_IMAGE:-catalog-router:0.1.0}
+    environment:
+      MCP_TRANSPORT: http
+      PORT: "8080"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "127.0.0.1:8080:8080"   # localhost only; put a gateway or auth proxy in front for anything else
+    volumes:
+      - ${CATALOG_FILE:-./catalog/example-catalog.yaml}:/catalog/catalog.yaml:ro
+    # Hardening: the router only reads one YAML file and answers requests.
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=2).status == 200 else 1)"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
