@@ -10,7 +10,7 @@
 services:
   catalog-router:
     build: .
-    image: ${CATALOG_ROUTER_IMAGE:-catalog-router:0.1.0}
+    image: ${CATALOG_ROUTER_IMAGE:-catalog-router:0.1.1}
     environment:
       MCP_TRANSPORT: http
       PORT: "8080"

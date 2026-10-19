@@ -32,7 +32,7 @@ The installer pulls the image and writes an example catalog to `~/.catalog-route
 docker run -i --rm --network none --read-only --cap-drop ALL \
   --security-opt no-new-privileges \
   -v ~/.catalog-router/catalog.yaml:/catalog/catalog.yaml:ro \
-  catalog-router:0.1.0
+  catalog-router:0.1.1
 
 # HTTP (long-running, for gateways and shared use)
 docker compose up -d --build
@@ -44,7 +44,7 @@ curl localhost:8080/healthz         # {"status":"ok",...}
 
 ```sh
 git clone https://github.com/sangaraju1988/catalog-router && cd catalog-router
-docker build -t catalog-router:0.1.0 .
+docker build -t catalog-router:0.1.1 .
 ./install.sh            # falls back to the local build when the image can't be pulled
 ```
 
@@ -109,7 +109,7 @@ See [`catalog/example-catalog.yaml`](catalog/example-catalog.yaml), which is a f
 Validate a catalog without starting the server:
 
 ```sh
-docker run --rm --network none -v ./my-catalog.yaml:/catalog/catalog.yaml:ro catalog-router:0.1.0 --check
+docker run --rm --network none -v ./my-catalog.yaml:/catalog/catalog.yaml:ro catalog-router:0.1.1 --check
 ```
 
 Validation rejects:
@@ -133,7 +133,7 @@ The router only needs to read one YAML file and talk over stdio, so the default 
 
 ## Roadmap
 
-- [ ] Publish multi-arch image to GHCR (CI is ready; it runs on tag `v0.1.0`)
+- [ ] Publish multi-arch image to GHCR (CI is ready; it runs on tag `v0.1.1`)
 - [ ] Register in a Docker MCP Gateway custom catalog, alongside the dbt, Looker, Tableau, Superset and BigQuery servers
 - [ ] `catalog-router import`: generate the catalog from a dbt `manifest.json` and LookML
 - [ ] Optional embedding-based synonym matching, with the deterministic path kept as the default
