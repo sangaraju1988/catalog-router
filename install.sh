@@ -15,7 +15,7 @@
 
 set -eu
 
-IMAGE="${CATALOG_ROUTER_IMAGE:-ghcr.io/OWNER/catalog-router:0.1.0}"
+IMAGE="${CATALOG_ROUTER_IMAGE:-ghcr.io/sangaraju1988/catalog-router:0.1.0}"
 HOME_DIR="${CATALOG_ROUTER_HOME:-$HOME/.catalog-router}"
 CATALOG="$HOME_DIR/catalog.yaml"
 CONFIGURE_CLAUDE=0

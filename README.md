@@ -20,7 +20,7 @@ It never queries data itself. It tells the agent **where** to go, **which refere
 ### One-line install (Claude Desktop, any MCP client)
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/OWNER/catalog-router/main/install.sh | sh -s -- --configure-claude
+curl -fsSL https://raw.githubusercontent.com/sangaraju1988/catalog-router/main/install.sh | sh -s -- --configure-claude
 ```
 
 The installer pulls the image and writes an example catalog to `~/.catalog-router/catalog.yaml`. It then registers the server in Claude Desktop, after making a timestamped backup of your config. Restart Claude Desktop and ask *"Which system should answer: how is net revenue calculated?"*
@@ -43,7 +43,7 @@ curl localhost:8080/healthz         # {"status":"ok",...}
 ### Build from source
 
 ```sh
-git clone https://github.com/OWNER/catalog-router && cd catalog-router
+git clone https://github.com/sangaraju1988/catalog-router && cd catalog-router
 docker build -t catalog-router:0.1.0 .
 ./install.sh            # falls back to the local build when the image can't be pulled
 ```
